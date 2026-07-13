@@ -4,7 +4,13 @@ import sqlite3
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DB_PATH = Path(os.environ.get("DATABASE_URL", BASE_DIR / "database" / "app.db"))
+vercel_mode = bool(os.environ.get("VERCEL") or os.environ.get("VERCEL_ENV"))
+if os.environ.get("DATABASE_URL"):
+    DB_PATH = Path(os.environ["DATABASE_URL"])
+elif vercel_mode:
+    DB_PATH = Path("/tmp/app.db")
+else:
+    DB_PATH = BASE_DIR / "database" / "app.db"
 
 
 def get_connection():
