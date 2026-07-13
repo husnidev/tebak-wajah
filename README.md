@@ -52,3 +52,18 @@ tombol hapus riwayat
 halaman detail hasil
 API JSON yang lebih lengkap
 dan tambahkan api model yang bisa memanmpilkan sifat manusia berdasarkan bentuk rupa wajah yang diupload.
+
+setting environmet pada saat dijalankan di local dan vercel
+
+import os
+from pathlib import Path
+
+if os.environ.get("VERCEL"):
+    UPLOAD_FOLDER = Path("/tmp/uploads")
+else:
+    BASE_DIR = Path(__file__).resolve().parent
+    UPLOAD_FOLDER = BASE_DIR / "uploads"
+
+UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
+
+app.config["UPLOAD_FOLDER"] = str(UPLOAD_FOLDER)

@@ -17,7 +17,14 @@ from database.db import (
 
 BASE_DIR = Path(__file__).resolve().parent
 
-UPLOAD_FOLDER = BASE_DIR / "tmp"
+vercel_mode = bool(os.environ.get("VERCEL") or os.environ.get("VERCEL_ENV"))
+if os.environ.get("UPLOAD_FOLDER"):
+    UPLOAD_FOLDER = Path(os.environ["UPLOAD_FOLDER"])
+elif vercel_mode:
+    UPLOAD_FOLDER = Path("/tmp/uploads")
+else:
+    UPLOAD_FOLDER = BASE_DIR / "tmp" / "uploads"
+
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
 
 app = Flask(__name__)
@@ -25,7 +32,6 @@ app.config["SECRET_KEY"] = "tebak-wajah-secret"
 app.config["UPLOAD_FOLDER"] = str(UPLOAD_FOLDER)
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
 
-UPLOAD_FOLDER = Path(UPLOAD_FOLDER)
 UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
 init_db()
 
@@ -255,7 +261,7 @@ def api_predict():
     ext = Path(original_name).suffix.lower()
     stored_name = f"{uuid.uuid4().hex}{ext}"
     save_path = UPLOAD_FOLDER / stored_name
-    file.save(save_path)
+    file.save(str(save_path))
 
     prediction, confidence, metrics = predict_face_shape(str(save_path))
     prediction_id = save_prediction(original_name, prediction, confidence, stored_name, metrics)
@@ -287,7 +293,7 @@ def api_personality():
     ext = Path(original_name).suffix.lower()
     stored_name = f"{uuid.uuid4().hex}{ext}"
     save_path = UPLOAD_FOLDER / stored_name
-    file.save(save_path)
+    file.save(str(save_path))
 
     prediction, confidence, metrics = predict_face_shape(str(save_path))
     personality = map_personality(prediction)
