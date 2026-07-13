@@ -43,7 +43,8 @@ Struktur projek
   - JS
   - IMAGES
 6. TEMPLATES
-7. UPLOADS
+7. TMP
+  - UPLOADS
 
 apilkasi memiliki fitur diantaranya:
 prediksi wajah yang lebih realistis dengan OpenCV/MediaPipe

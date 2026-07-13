@@ -16,7 +16,8 @@ from database.db import (
 )
 
 BASE_DIR = Path(__file__).resolve().parent
-UPLOAD_FOLDER = BASE_DIR / "tmp" / "uploads"
+
+UPLOAD_FOLDER = BASE_DIR / "tmp"
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
 
 app = Flask(__name__)
@@ -24,7 +25,8 @@ app.config["SECRET_KEY"] = "tebak-wajah-secret"
 app.config["UPLOAD_FOLDER"] = str(UPLOAD_FOLDER)
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
 
-UPLOAD_FOLDER.mkdir(exist_ok=True)
+UPLOAD_FOLDER = Path(UPLOAD_FOLDER)
+UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
 init_db()
 
 
@@ -142,6 +144,14 @@ def map_personality(shape: str):
             "strengths": ["Menciptakan ide baru", "Cepat beradaptasi"],
             "challenges": ["Bisa terlalu banyak memikirkan opsi"],
         },
+        "Semrawut / Tidak Terawat": {
+            "summary": "Penampilan yang terkesan kurang rapi atau terawat; ini bisa disebabkan oleh kondisi sementara atau gaya hidup.",
+            "traits": ["Santai", "Kurang perhatian pada detail", "Apa adanya"],
+            "strengths": ["Tidak terlalu memikirkan penilaian orang lain", "Autentik"],
+            "challenges": ["Bisa memberi kesan kurang profesional", "Perlu perawatan diri lebih"],
+            "advice": ["Pertimbangkan perawatan kulit dasar", "Rapi saat acara penting", "Tidur cukup dan hidrasi"],
+        },
+        
     }
     return personality_map.get(shape, personality_map["Oval / Panjang"])
 
@@ -168,7 +178,7 @@ def index():
         ext = Path(original_name).suffix.lower()
         stored_name = f"{uuid.uuid4().hex}{ext}"
         save_path = UPLOAD_FOLDER / stored_name
-        file.save(save_path)
+        file.save(str(save_path))
 
         prediction, confidence, metrics = predict_face_shape(str(save_path))
         prediction_id = save_prediction(original_name, prediction, confidence, stored_name, metrics)
@@ -207,6 +217,26 @@ def delete_history(prediction_id: int):
 def api_history():
     history = get_predictions(limit=20)
     return jsonify({"count": len(history), "history": history})
+
+
+@app.route("/api/appearance", methods=["POST"])
+def api_appearance():
+    """Return a gentle appearance profile. Accepts optional `label` form field.
+
+    This endpoint does not attempt to judge appearance automatically; it
+    returns a non-derogatory mapping for known labels such as 'semrawut'.
+    """
+    label = request.form.get("label", "").lower()
+    label_map = {
+        "semrawut": "Semrawut / Tidak Terawat",
+        "tidak_terawat": "Semrawut / Tidak Terawat",
+    }
+    mapped = label_map.get(label)
+    if not mapped:
+        return jsonify({"error": "Label tidak dikenali. Gunakan 'semrawut' atau 'tidak_terawat'."}), 400
+
+    profile = map_personality(mapped)
+    return jsonify({"label": mapped, "profile": profile})
 
 
 @app.route("/api/predict", methods=["POST"])
@@ -261,16 +291,30 @@ def api_personality():
 
     prediction, confidence, metrics = predict_face_shape(str(save_path))
     personality = map_personality(prediction)
-    return jsonify(
-        {
-            "filename": original_name,
-            "prediction": prediction,
-            "confidence": confidence,
-            "metrics": metrics,
-            "personality": personality,
-            "image_url": url_for("uploaded_file", filename=stored_name, _external=True),
+    # optional appearance override via form param (e.g., appearance=semrawut)
+    appearance_label = request.form.get("appearance")
+    appearance = None
+    if appearance_label:
+        # map common keys
+        key_map = {
+            "semrawut": "Semrawut / Tidak Terawat",
+            "tidak_terawat": "Semrawut / Tidak Terawat",
         }
-    )
+        mapped = key_map.get(appearance_label.lower())
+        if mapped:
+            appearance = map_personality(mapped)
+
+    resp = {
+        "filename": original_name,
+        "prediction": prediction,
+        "confidence": confidence,
+        "metrics": metrics,
+        "personality": personality,
+        "image_url": url_for("uploaded_file", filename=stored_name, _external=True),
+    }
+    if appearance:
+        resp["appearance"] = appearance
+    return jsonify(resp)
 
 
 if __name__ == "__main__":
