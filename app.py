@@ -16,7 +16,7 @@ from database.db import (
 )
 
 BASE_DIR = Path(__file__).resolve().parent
-UPLOAD_FOLDER = BASE_DIR / "uploads"
+UPLOAD_FOLDER = BASE_DIR / "tmp" / "uploads"
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
 
 app = Flask(__name__)
