@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tebak Wajah</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  </head>
+  <body>
+    <main class="container">
+      <section class="card">
+        <h1>Tebak Wajah</h1>
+        <p>Unggah foto wajah Anda untuk melihat prediksi berbasis OpenCV + MediaPipe.</p>
+
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <ul class="flash-list">
+              {% for message in messages %}
+                <li>{{ message }}</li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+        {% endwith %}
+
+        <form action="{{ url_for('index') }}" method="post" enctype="multipart/form-data">
+          <input type="file" name="file" accept="image/*" required />
+          <button type="submit">Prediksi</button>
+        </form>
+
+        {% if prediction %}
+          <div class="result-box">
+            <h2>Hasil Prediksi</h2>
+            <p><strong>Nama file:</strong> {{ uploaded_name }}</p>
+            <p><strong>Prediksi:</strong> {{ prediction }}</p>
+            <p><strong>Confidence:</strong> {{ confidence }}</p>
+            <p><a href="{{ url_for('detail_result', prediction_id=prediction_id) }}">Lihat detail hasil</a></p>
+          </div>
+        {% endif %}
+      </section>
+
+      <section class="card">
+        <div class="history-head">
+          <h2>Riwayat Prediksi</h2>
+          <a href="{{ url_for('api_history') }}">Lihat API JSON</a>
+        </div>
+
+        {% if history %}
+          <table>
+            <thead>
+              <tr>
+                <th>No</th>
+                <th>Nama File</th>
+                <th>Prediksi</th>
+                <th>Confidence</th>
+                <th>Waktu</th>
+                <th>Detail</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in history %}
+                <tr>
+                  <td>{{ item.id }}</td>
+                  <td>{{ item.filename }}</td>
+                  <td>{{ item.prediction }}</td>
+                  <td>{{ item.confidence }}</td>
+                  <td>{{ item.created_at }}</td>
+                  <td><a href="{{ url_for('detail_result', prediction_id=item.id) }}">Detail</a></td>
+                  <td>
+                    <form action="{{ url_for('delete_history', prediction_id=item.id) }}" method="post" class="inline-form">
+                      <button class="danger" type="submit">Hapus</button>
+                    </form>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p>Belum ada riwayat prediksi.</p>
+        {% endif %}
+      </section>
+    </main>
+  </body>
+</html>

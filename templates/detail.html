@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Detail Hasil</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  </head>
+  <body>
+    <main class="container">
+      <section class="card">
+        <h1>Detail Hasil Prediksi</h1>
+        <p><strong>Nama file:</strong> {{ prediction.filename }}</p>
+        <p><strong>Prediksi:</strong> {{ prediction.prediction }}</p>
+        <p><strong>Confidence:</strong> {{ prediction.confidence }}</p>
+        <p><strong>Waktu:</strong> {{ prediction.created_at }}</p>
+
+        {% if prediction.image_path %}
+          <img class="preview" src="{{ url_for('uploaded_file', filename=prediction.image_path) }}" alt="Hasil upload" />
+        {% endif %}
+
+        {% if prediction.details %}
+          <h2>Metric Wajah</h2>
+          <ul>
+            {% for key, value in prediction.details.items() %}
+              <li><strong>{{ key }}:</strong> {{ value }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+
+        <h2>Profil Sifat</h2>
+        <p><strong>Ringkasan:</strong> {{ prediction.personality.summary }}</p>
+        <p><strong>Traits:</strong> {{ prediction.personality.traits | join(', ') }}</p>
+        <p><strong>Kekuatan:</strong> {{ prediction.personality.strengths | join(', ') }}</p>
+        <p><strong>Tantangan:</strong> {{ prediction.personality.challenges | join(', ') }}</p>
+
+        <p><a href="{{ url_for('index') }}">Kembali ke beranda</a></p>
+      </section>
+    </main>
+  </body>
+</html>
