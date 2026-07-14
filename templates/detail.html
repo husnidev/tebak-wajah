@@ -29,10 +29,10 @@
         {% endif %}
 
         <h2>Profil Sifat</h2>
-        <p><strong>Ringkasan:</strong> {{ prediction.personality.summary }}</p>
-        <p><strong>Traits:</strong> {{ prediction.personality.traits | join(', ') }}</p>
-        <p><strong>Kekuatan:</strong> {{ prediction.personality.strengths | join(', ') }}</p>
-        <p><strong>Tantangan:</strong> {{ prediction.personality.challenges | join(', ') }}</p>
+        <p><strong>Ringkasan:</strong> {{ prediction.personality.summary | default('Tidak tersedia') }}</p>
+        <p><strong>Traits:</strong> {{ prediction.personality.traits | default([]) | join(', ') or 'Tidak tersedia' }}</p>
+        <p><strong>Kekuatan:</strong> {{ prediction.personality.strengths | default([]) | join(', ') or 'Tidak tersedia' }}</p>
+        <p><strong>Tantangan:</strong> {{ prediction.personality.challenges | default([]) | join(', ') or 'Tidak tersedia' }}</p>
 
         <p><a href="{{ url_for('index') }}">Kembali ke beranda</a></p>
       </section>

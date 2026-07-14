@@ -309,7 +309,10 @@ def map_personality(shape: str, metrics: dict | None = None):
 
                 if text.startswith("```"):
                     text = text.replace("```json", "").replace("```", "").strip()
-                return json.loads(text)
+                parsed = json.loads(text)
+                if isinstance(parsed, dict) and all(k in parsed for k in ("summary", "traits", "strengths", "challenges")):
+                    return parsed
+                app.logger.warning(f"{model}: response missing required keys, falling back")
 
             except json.JSONDecodeError as e:
                 app.logger.warning(f"{model}: invalid JSON: {e} | raw: {text[:300] if text else 'None'}")
@@ -379,17 +382,25 @@ def detail_result(prediction_id: int):
 
     prediction["details"] = json.loads(prediction["details"]) if prediction.get("details") else {}
     try:
-        prediction["personality"] = map_personality(prediction.get("prediction", ""), prediction.get("details", {}))
+        personality = map_personality(prediction.get("prediction", ""), prediction.get("details", {}))
     except Exception as e:
         app.logger.warning(f"Gagal generate personality: {e}")
-        fallback_map = {
+        personality = None
+
+    _required_keys = ("summary", "traits", "strengths", "challenges")
+    if not isinstance(personality, dict) or not all(k in personality for k in _required_keys):
+        app.logger.warning("Personality result invalid; using fallback")
+        _fallback_map = {
             "Bulat / Persegi": {"summary": "Cenderung hangat, setia, dan suka menjaga hubungan.", "traits": ["Sosial", "Penuh perhatian", "Ramah", "Stabil"], "strengths": ["Mudah beradaptasi", "Membangun kepercayaan"], "challenges": ["Kadang terlalu hati-hati"]},
             "Oval / Panjang": {"summary": "Biasanya terlihat tenang, bijaksana, dan berpikir luas.", "traits": ["Analitis", "Tenang", "Bijaksana", "Terarah"], "strengths": ["Berpikir strategis", "Sabar"], "challenges": ["Terkadang terlalu kritis"]},
             "Segitiga / Lonjong": {"summary": "Sering dianggap berani, mandiri, dan penuh energi.", "traits": ["Berani", "Mandiri", "Enerjik", "Proaktif"], "strengths": ["Memimpin", "Berinisiatif"], "challenges": ["Cenderung cepat ambil keputusan"]},
             "Panjang / Oblong": {"summary": "Kebanyakan dikenal sebagai pribadi yang fleksibel dan visioner.", "traits": ["Fleksibel", "Visioner", "Inovatif", "Adaptif"], "strengths": ["Menciptakan ide baru", "Cepat beradaptasi"], "challenges": ["Bisa terlalu banyak memikirkan opsi"]},
+            "Semrawut / Tidak Terawat": {"summary": "Penampilan yang terkesan kurang rapi atau terawat.", "traits": ["Santai", "Apa adanya"], "strengths": ["Autentik"], "challenges": ["Perlu perawatan diri lebih"]},
         }
         shape = prediction.get("prediction", "")
-        prediction["personality"] = fallback_map.get(shape, fallback_map["Oval / Panjang"])
+        personality = _fallback_map.get(shape, _fallback_map["Oval / Panjang"])
+
+    prediction["personality"] = personality
     return render_template("detail.html", prediction=prediction)
 
 
