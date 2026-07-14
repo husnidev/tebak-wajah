@@ -224,9 +224,8 @@ def map_personality(shape: str, metrics: dict | None = None):
                 pass
 
     if is_production and not api_key:
-        raise RuntimeError(
-            "GOOGLE_API_KEY environment variable not set. Set it to use AI-generated personality maps in production."
-        )
+        app.logger.warning("GOOGLE_API_KEY not set in production; using fallback personality map")
+        return fallback_map.get(shape, fallback_map["Oval / Panjang"])
 
     if not api_key:
         return fallback_map.get(shape, fallback_map["Oval / Panjang"])
@@ -351,7 +350,18 @@ def detail_result(prediction_id: int):
         return redirect(url_for("index"))
 
     prediction["details"] = json.loads(prediction["details"]) if prediction.get("details") else {}
-    prediction["personality"] = map_personality(prediction.get("prediction", ""), prediction.get("details", {}))
+    try:
+        prediction["personality"] = map_personality(prediction.get("prediction", ""), prediction.get("details", {}))
+    except Exception as e:
+        app.logger.warning(f"Gagal generate personality: {e}")
+        fallback_map = {
+            "Bulat / Persegi": {"summary": "Cenderung hangat, setia, dan suka menjaga hubungan.", "traits": ["Sosial", "Penuh perhatian", "Ramah", "Stabil"], "strengths": ["Mudah beradaptasi", "Membangun kepercayaan"], "challenges": ["Kadang terlalu hati-hati"]},
+            "Oval / Panjang": {"summary": "Biasanya terlihat tenang, bijaksana, dan berpikir luas.", "traits": ["Analitis", "Tenang", "Bijaksana", "Terarah"], "strengths": ["Berpikir strategis", "Sabar"], "challenges": ["Terkadang terlalu kritis"]},
+            "Segitiga / Lonjong": {"summary": "Sering dianggap berani, mandiri, dan penuh energi.", "traits": ["Berani", "Mandiri", "Enerjik", "Proaktif"], "strengths": ["Memimpin", "Berinisiatif"], "challenges": ["Cenderung cepat ambil keputusan"]},
+            "Panjang / Oblong": {"summary": "Kebanyakan dikenal sebagai pribadi yang fleksibel dan visioner.", "traits": ["Fleksibel", "Visioner", "Inovatif", "Adaptif"], "strengths": ["Menciptakan ide baru", "Cepat beradaptasi"], "challenges": ["Bisa terlalu banyak memikirkan opsi"]},
+        }
+        shape = prediction.get("prediction", "")
+        prediction["personality"] = fallback_map.get(shape, fallback_map["Oval / Panjang"])
     return render_template("detail.html", prediction=prediction)
 
 
