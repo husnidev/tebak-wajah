@@ -212,7 +212,7 @@ def map_personality(shape: str, metrics: dict | None = None):
         return fallback_map.get(shape, fallback_map["Oval / Panjang"])
 
     try:
-        import google.generativeai as genai
+        from google import genai
 
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel("gemini-1.5-flash")

@@ -67,9 +67,14 @@ class AppTestCase(unittest.TestCase):
             configure=lambda api_key=None: None,
             GenerativeModel=lambda *args, **kwargs: FakeModel(),
         )
+        fake_google_module = types.SimpleNamespace(genai=fake_genai_module)
 
         with patch.dict(os.environ, {"GOOGLE_API_KEY": "fake-key"}, clear=False), patch.dict(
-            sys.modules, {"google.generativeai": fake_genai_module}
+            sys.modules,
+            {
+                "google": fake_google_module,
+                "google.genai": fake_genai_module,
+            },
         ):
             profile = app_module.map_personality("Bulat / Persegi", {})
 
