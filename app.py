@@ -274,30 +274,47 @@ def map_personality(shape: str, metrics: dict | None = None):
                     model=model,
                     contents=prompt,
                     config={
-                        "temperature":0.6,
-                        "max_output_tokens":400,
+                        "temperature": 0.6,
+                        "max_output_tokens": 400,
+                        "safety_settings": [
+                            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+                        ],
                     }
                 )
 
-                app.logger.info(f"Success {model}")
-                app.logger.info(f"Response candidates: {len(response.candidates) if response.candidates else 0}")
+                if not response.candidates:
+                    app.logger.warning(f"{model}: no candidates returned")
+                    continue
 
-                text = response.text
+                candidate = response.candidates[0]
+                finish_reason = getattr(candidate, "finish_reason", "UNKNOWN")
+                app.logger.info(f"{model} finish_reason: {finish_reason}")
+
+                text = None
+                try:
+                    text = response.text
+                except (ValueError, AttributeError) as e:
+                    app.logger.warning(f"{model}: response.text raised {type(e).__name__}: {e}")
+                    continue
+
                 if not text or not text.strip():
-                    app.logger.warning(f"{model} returned empty response")
+                    app.logger.warning(f"{model}: empty response text")
                     continue
 
                 text = text.strip()
-                app.logger.info(f"Response text preview: {text[:200]}")
+                app.logger.info(f"{model} response preview: {text[:200]}")
 
                 if text.startswith("```"):
                     text = text.replace("```json", "").replace("```", "").strip()
                 return json.loads(text)
 
             except json.JSONDecodeError as e:
-                app.logger.warning(f"{model} returned invalid JSON: {e} | text: {text[:300] if text else 'None'}")
+                app.logger.warning(f"{model}: invalid JSON: {e} | raw: {text[:300] if text else 'None'}")
             except Exception as e:
-                app.logger.warning(f"{model} gagal: {e}")
+                app.logger.warning(f"{model}: error: {type(e).__name__}: {e}")
 
         # All models failed, fall back to hardcoded map
         app.logger.warning("All Gemini models failed; falling back to hardcoded personality map")

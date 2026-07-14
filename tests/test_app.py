@@ -63,7 +63,7 @@ class AppTestCase(unittest.TestCase):
             def generate_content(self, *args, **kwargs):
                 return types.SimpleNamespace(
                     text='{"summary": "Google AI profile", "traits": ["Cerdas"], "strengths": ["Adaptif"], "challenges": ["Perlu fokus"]}',
-                    candidates=[types.SimpleNamespace()],
+                    candidates=[types.SimpleNamespace(finish_reason="STOP")],
                 )
             def list(self):
                 return [types.SimpleNamespace(name="fake-model")]
