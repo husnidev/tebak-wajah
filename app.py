@@ -28,9 +28,10 @@ else:
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
 
 MODEL_PREFERENCES = [
-    "gemini-1.5-flash",
+    "gemini-3.5-flash",
     "gemini-3.1-flash-lite",
     "gemini-2.0-flash",
+    "gemini-flash-latest",
 ]
 
 app = Flask(__name__)
@@ -278,27 +279,23 @@ def map_personality(shape: str, metrics: dict | None = None):
             "Return only the JSON object."
         )
 
-        for model in candidate_models:
-            app.logger.info(f"Trying model: {model}")
+        for model in MODEL_PREFERENCES:
+            app.logger.info(f"Trying {model}")
+
             try:
                 response = client.models.generate_content(
                     model=model,
                     contents=prompt,
                 )
+
+                app.logger.info(f"Success {model}")
                 text = response.text.strip()
-                try:
-                    return json.loads(text)
-                except Exception:
-                    start = text.find("{")
-                    end = text.rfind("}")
-                    if start != -1 and end != -1:
-                        try:
-                            return json.loads(text[start : end + 1])
-                        except Exception:
-                            pass
-                raise ValueError("AI response could not be parsed as JSON: %s" % text)
+                if text.startswith("```"):
+                    text = text.replace("```json", "").replace("```", "").strip()
+                return json.loads(text)
+
             except Exception as e:
-                app.logger.warning(f"{model} gagal: {e}")
+                app.logger.warning(f"{model} failed: {e}")
 
         # All models failed, fall back to hardcoded map
         app.logger.warning("All Gemini models failed; falling back to hardcoded personality map")
