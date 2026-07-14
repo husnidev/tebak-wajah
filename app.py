@@ -236,6 +236,19 @@ def map_personality(shape: str, metrics: dict | None = None):
 
         client = genai.Client(api_key=api_key)
 
+        def _normalize_model_name(model):
+            if hasattr(model, "name"):
+                name = model.name
+            elif isinstance(model, dict):
+                name = model.get("name", "")
+            else:
+                name = str(model)
+
+            if name.startswith("models/"):
+                name = name.replace("models/", "", 1)
+
+            return name
+
         system_msg = (
             "You are a helpful assistant that generates a concise personality map "
             "based on a face shape label and optional numeric facial metrics. "
