@@ -143,6 +143,9 @@ def map_personality(shape: str, metrics: dict | None = None):
 
     api_key = os.getenv("OPENAI_API_KEY")
 
+    app.logger.info(f"VERCEL_ENV={os.getenv('VERCEL_ENV')}")
+    app.logger.info(f"OPENAI_API_KEY exists={bool(api_key)}")
+
     # Hardcoded fallback map used when AI key/call is unavailable.
     fallback_map = {
         "Bulat / Persegi": {
