@@ -236,31 +236,6 @@ def map_personality(shape: str, metrics: dict | None = None):
 
         client = genai.Client(api_key=api_key)
 
-        def _normalize_model_name(model):
-            try:
-                return getattr(model, "name", None) or (model.get("name") if isinstance(model, dict) else str(model))
-            except Exception:
-                return str(model)
-
-        available_models = []
-        try:
-            for m in client.models.list():
-                name = _normalize_model_name(m)
-                if name:
-                    available_models.append(name)
-                    app.logger.info(f"Available model: {name}")
-        except Exception:
-            app.logger.info("Could not list available models")
-
-        candidate_models = [m for m in MODEL_PREFERENCES if m in available_models]
-        if not candidate_models:
-            candidate_models = [m for m in available_models if isinstance(m, str) and m.startswith("gemini-")]
-            if candidate_models:
-                app.logger.info("Preferred Gemini models not found; using available Gemini models")
-            else:
-                app.logger.warning("No available Gemini models found; falling back to hardcoded personality map")
-                return fallback_map.get(shape, fallback_map["Oval / Panjang"])
-
         system_msg = (
             "You are a helpful assistant that generates a concise personality map "
             "based on a face shape label and optional numeric facial metrics. "
@@ -295,7 +270,7 @@ def map_personality(shape: str, metrics: dict | None = None):
                 return json.loads(text)
 
             except Exception as e:
-                app.logger.warning(f"{model} failed: {e}")
+                app.logger.warning(f"{model} gagal: {e}")
 
         # All models failed, fall back to hardcoded map
         app.logger.warning("All Gemini models failed; falling back to hardcoded personality map")
