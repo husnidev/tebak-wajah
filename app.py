@@ -27,7 +27,7 @@ else:
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
 
-MODELS = [
+MODEL_PREFERENCES = [
     "gemini-1.5-flash",
     "gemini-3.1-flash-lite",
     "gemini-2.0-flash",
@@ -235,16 +235,30 @@ def map_personality(shape: str, metrics: dict | None = None):
 
         client = genai.Client(api_key=api_key)
 
-        # Log available models (useful for debugging which models are accessible)
+        def _normalize_model_name(model):
+            try:
+                return getattr(model, "name", None) or (model.get("name") if isinstance(model, dict) else str(model))
+            except Exception:
+                return str(model)
+
+        available_models = []
         try:
             for m in client.models.list():
-                try:
-                    name = getattr(m, "name", None) or (m.get("name") if isinstance(m, dict) else str(m))
-                except Exception:
-                    name = str(m)
-                app.logger.info(f"Available model: {name}")
+                name = _normalize_model_name(m)
+                if name:
+                    available_models.append(name)
+                    app.logger.info(f"Available model: {name}")
         except Exception:
             app.logger.info("Could not list available models")
+
+        candidate_models = [m for m in MODEL_PREFERENCES if m in available_models]
+        if not candidate_models:
+            candidate_models = [m for m in available_models if isinstance(m, str) and m.startswith("gemini-")]
+            if candidate_models:
+                app.logger.info("Preferred Gemini models not found; using available Gemini models")
+            else:
+                app.logger.warning("No available Gemini models found; falling back to hardcoded personality map")
+                return fallback_map.get(shape, fallback_map["Oval / Panjang"])
 
         system_msg = (
             "You are a helpful assistant that generates a concise personality map "
@@ -264,7 +278,7 @@ def map_personality(shape: str, metrics: dict | None = None):
             "Return only the JSON object."
         )
 
-        for model in MODELS:
+        for model in candidate_models:
             app.logger.info(f"Trying model: {model}")
             try:
                 response = client.models.generate_content(
