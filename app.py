@@ -258,11 +258,27 @@ def map_personality(shape: str, metrics: dict | None = None):
             "Return only the JSON object."
         )
 
-        model_name = os.getenv("GOOGLE_MODEL", "gemini-2.5-flash")
-        response = client.models.generate_content(
-            model=model_name,
-            contents=prompt,
-        )
+        preferred_model = os.getenv("GOOGLE_MODEL", "gemini-flash-latest")
+        candidate_models = [preferred_model, "gemini-3.5-flash", "gemini-flash-latest"]
+
+        response = None
+        for model_name in candidate_models:
+            app.logger.info(f"Trying model: {model_name}")
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                )
+                break
+            except Exception as exc:
+                msg = str(exc).lower()
+                app.logger.warning(f"Model {model_name} failed: {msg}")
+                if "404" in msg or "not available" in msg or "no longer available" in msg:
+                    continue
+                raise
+
+        if response is None:
+            raise RuntimeError("No supported Gemini model could be used for personality mapping.")
 
         text = getattr(response, "text", "") or ""
         text = text.strip()
