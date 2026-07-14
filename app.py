@@ -135,7 +135,13 @@ def map_personality(shape: str, metrics: dict | None = None):
     import os
     import json
 
-    api_key = os.environ.get("OPENAI_API_KEY")
+    print("===== ENV CHECK =====")
+    print("VERCEL =", os.getenv("VERCEL"))
+    print("VERCEL_ENV =", os.getenv("VERCEL_ENV"))
+    print("OPENAI_API_KEY exists =", bool(os.getenv("OPENAI_API_KEY")))
+    print("=====================")
+
+    api_key = os.getenv("OPENAI_API_KEY")
 
     # Hardcoded fallback map used when AI key/call is unavailable.
     fallback_map = {
