@@ -51,7 +51,7 @@ prediksi wajah yang lebih realistis dengan OpenCV/MediaPipe
 tombol hapus riwayat
 halaman detail hasil
 API JSON yang lebih lengkap
-dan tambahkan api model yang bisa memanmpilkan sifat manusia berdasarkan bentuk rupa wajah yang diupload.
+dan tambahkan api model yang bisa memanmpilkan sifat manusia berdasarkan bentuk rupa wajah yang diupload menggunakan Google AI.
 
 setting environmet pada saat dijalankan di local dan vercel
 

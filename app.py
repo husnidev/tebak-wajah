@@ -125,10 +125,10 @@ def predict_face_shape(image_path: str):
 
 
 def map_personality(shape: str, metrics: dict | None = None):
-    """Generate a personality map using an AI model.
+    """Generate a personality map using a Google AI model.
 
-    Requires environment variable `OPENAI_API_KEY` to be set. The function
-    calls the OpenAI ChatCompletion API and expects the model to return a JSON
+    Requires environment variable `GOOGLE_API_KEY` to be set. The function
+    calls the Google Generative AI API and expects the model to return a JSON
     object with keys: `summary`, `traits` (list), `strengths` (list),
     `challenges` (list), and optional `advice` (list).
     """
@@ -138,13 +138,13 @@ def map_personality(shape: str, metrics: dict | None = None):
     print("===== ENV CHECK =====")
     print("VERCEL =", os.getenv("VERCEL"))
     print("VERCEL_ENV =", os.getenv("VERCEL_ENV"))
-    print("OPENAI_API_KEY exists =", bool(os.getenv("OPENAI_API_KEY")))
+    print("GOOGLE_API_KEY exists =", bool(os.getenv("GOOGLE_API_KEY")))
     print("=====================")
 
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = os.getenv("GOOGLE_API_KEY")
 
     app.logger.info(f"VERCEL_ENV={os.getenv('VERCEL_ENV')}")
-    app.logger.info(f"OPENAI_API_KEY exists={bool(api_key)}")
+    app.logger.info(f"GOOGLE_API_KEY exists={bool(api_key)}")
 
     # Hardcoded fallback map used when AI key/call is unavailable.
     fallback_map = {
@@ -190,14 +190,14 @@ def map_personality(shape: str, metrics: dict | None = None):
     )
 
     # When running locally, allow loading key from .env or falling back to the
-    # hardcoded map. In production we require the OPENAI_API_KEY env var.
+    # hardcoded map. In production we require the GOOGLE_API_KEY env var.
     if not api_key and not is_production:
         env_path = BASE_DIR / ".env"
         if env_path.exists():
             try:
                 with open(env_path, "r", encoding="utf-8") as f:
                     for line in f:
-                        if line.strip().startswith("OPENAI_API_KEY="):
+                        if line.strip().startswith("GOOGLE_API_KEY="):
                             api_key = line.split("=", 1)[1].strip()
                             break
             except Exception:
@@ -205,17 +205,17 @@ def map_personality(shape: str, metrics: dict | None = None):
 
     if is_production and not api_key:
         raise RuntimeError(
-            "OPENAI_API_KEY environment variable not set. Set it to use AI-generated personality maps in production."
+            "GOOGLE_API_KEY environment variable not set. Set it to use AI-generated personality maps in production."
         )
 
     if not api_key:
         return fallback_map.get(shape, fallback_map["Oval / Panjang"])
 
     try:
-        # Use the new OpenAI client interface (openai>=1.0.0)
-        from openai import OpenAI, RateLimitError
+        import google.generativeai as genai
 
-        client = OpenAI(api_key=api_key)
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel("gemini-1.5-flash")
 
         system_msg = (
             "You are a helpful assistant that generates a concise personality map "
@@ -235,25 +235,13 @@ def map_personality(shape: str, metrics: dict | None = None):
             "Return only the JSON object."
         )
 
-        resp = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "system", "content": system_msg}, {"role": "user", "content": prompt}],
-            temperature=0.7,
-            max_tokens=400,
-        )
-
-        # New client returns choices with message objects
-        text = getattr(resp.choices[0].message, "content", None) or resp.choices[0].message["content"]
-        if isinstance(text, bytes):
-            text = text.decode("utf-8")
+        response = model.generate_content([system_msg, prompt])
+        text = getattr(response, "text", "") or ""
         text = text.strip()
 
-        # Attempt to parse JSON from the model output. Models sometimes wrap JSON
-        # with backticks or extra text; try to extract the first JSON object.
         try:
             return json.loads(text)
         except Exception:
-            # Try to find a JSON substring
             start = text.find("{")
             end = text.rfind("}")
             if start != -1 and end != -1:
@@ -261,10 +249,7 @@ def map_personality(shape: str, metrics: dict | None = None):
                     return json.loads(text[start : end + 1])
                 except Exception:
                     pass
-        # If parsing fails, raise an error so callers can handle it.
         raise ValueError("AI response could not be parsed as JSON: %s" % text)
-    except RateLimitError:
-        return fallback_map.get(shape, fallback_map["Oval / Panjang"])
     except Exception:
         return fallback_map.get(shape, fallback_map["Oval / Panjang"])
 

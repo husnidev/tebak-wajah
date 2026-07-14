@@ -1,6 +1,8 @@
 import io
 import os
+import sys
 import tempfile
+import types
 import unittest
 from importlib import reload
 from unittest.mock import patch
@@ -52,24 +54,26 @@ class AppTestCase(unittest.TestCase):
         self.assertIn("prediction", data)
         self.assertIn("confidence", data)
 
-    def test_map_personality_falls_back_on_openai_quota_error(self):
+    def test_map_personality_uses_google_ai_when_available(self):
         import app as app_module
-        from openai import RateLimitError
 
-        class FakeCompletions:
-            def create(self, *args, **kwargs):
-                raise RateLimitError("quota exceeded", response=None, body=None)
+        class FakeModel:
+            def generate_content(self, *args, **kwargs):
+                return types.SimpleNamespace(
+                    text='{"summary": "Google AI profile", "traits": ["Cerdas"], "strengths": ["Adaptif"], "challenges": ["Perlu fokus"]}'
+                )
 
-        class FakeChat:
-            completions = FakeCompletions()
+        fake_genai_module = types.SimpleNamespace(
+            configure=lambda api_key=None: None,
+            GenerativeModel=lambda *args, **kwargs: FakeModel(),
+        )
 
-        class FakeClient:
-            chat = FakeChat()
-
-        with patch.dict(os.environ, {"OPENAI_API_KEY": "fake-key"}, clear=False), patch("openai.OpenAI", return_value=FakeClient()):
+        with patch.dict(os.environ, {"GOOGLE_API_KEY": "fake-key"}, clear=False), patch.dict(
+            sys.modules, {"google.generativeai": fake_genai_module}
+        ):
             profile = app_module.map_personality("Bulat / Persegi", {})
 
-        self.assertIn("summary", profile)
+        self.assertEqual(profile["summary"], "Google AI profile")
         self.assertIn("traits", profile)
 
     def test_personality_api_accepts_upload(self):
