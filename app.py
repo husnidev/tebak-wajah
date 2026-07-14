@@ -27,6 +27,12 @@ else:
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
 
+MODELS = [
+    "gemini-3.5-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-2.0-flash",
+]
+
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "tebak-wajah-secret"
 app.config["UPLOAD_FOLDER"] = str(UPLOAD_FOLDER)
@@ -258,8 +264,8 @@ def map_personality(shape: str, metrics: dict | None = None):
             "Return only the JSON object."
         )
 
-        preferred_model = os.getenv("GOOGLE_MODEL", "gemini-flash-latest")
-        candidate_models = [preferred_model, "gemini-3.5-flash", "gemini-flash-latest"]
+        preferred_model = os.getenv("GOOGLE_MODEL", "gemini-3.5-flash")
+        candidate_models = [preferred_model] + [m for m in MODELS if m != preferred_model]
 
         response = None
         for model_name in candidate_models:
