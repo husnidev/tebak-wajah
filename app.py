@@ -145,6 +145,10 @@ def map_personality(shape: str, metrics: dict | None = None):
 
     app.logger.info(f"VERCEL_ENV={os.getenv('VERCEL_ENV')}")
     app.logger.info(f"GOOGLE_API_KEY exists={bool(api_key)}")
+    app.logger.info("========== MAP PERSONALITY ==========")
+    app.logger.info(f"Shape: {shape}")
+    app.logger.info(f"API Key Exists: {bool(api_key)}")
+    app.logger.info("Calling Gemini...")
 
     # Hardcoded fallback map used when AI key/call is unavailable.
     fallback_map = {
@@ -253,7 +257,11 @@ def map_personality(shape: str, metrics: dict | None = None):
                 except Exception:
                     pass
         raise ValueError("AI response could not be parsed as JSON: %s" % text)
-    except Exception:
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        app.logger.exception(e)
         return fallback_map.get(shape, fallback_map["Oval / Panjang"])
 
 
