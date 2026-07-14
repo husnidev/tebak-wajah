@@ -3,6 +3,7 @@ import os
 import tempfile
 import unittest
 from importlib import reload
+from unittest.mock import patch
 
 from PIL import Image
 
@@ -50,6 +51,26 @@ class AppTestCase(unittest.TestCase):
         data = response.get_json()
         self.assertIn("prediction", data)
         self.assertIn("confidence", data)
+
+    def test_map_personality_falls_back_on_openai_quota_error(self):
+        import app as app_module
+        from openai import RateLimitError
+
+        class FakeCompletions:
+            def create(self, *args, **kwargs):
+                raise RateLimitError("quota exceeded", response=None, body=None)
+
+        class FakeChat:
+            completions = FakeCompletions()
+
+        class FakeClient:
+            chat = FakeChat()
+
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "fake-key"}, clear=False), patch("openai.OpenAI", return_value=FakeClient()):
+            profile = app_module.map_personality("Bulat / Persegi", {})
+
+        self.assertIn("summary", profile)
+        self.assertIn("traits", profile)
 
     def test_personality_api_accepts_upload(self):
         image_bytes = io.BytesIO()

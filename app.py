@@ -124,8 +124,21 @@ def predict_face_shape(image_path: str):
         return _fallback_prediction(image_path)
 
 
-def map_personality(shape: str):
-    personality_map = {
+def map_personality(shape: str, metrics: dict | None = None):
+    """Generate a personality map using an AI model.
+
+    Requires environment variable `OPENAI_API_KEY` to be set. The function
+    calls the OpenAI ChatCompletion API and expects the model to return a JSON
+    object with keys: `summary`, `traits` (list), `strengths` (list),
+    `challenges` (list), and optional `advice` (list).
+    """
+    import os
+    import json
+
+    api_key = os.environ.get("OPENAI_API_KEY")
+
+    # Hardcoded fallback map used when AI key/call is unavailable.
+    fallback_map = {
         "Bulat / Persegi": {
             "summary": "Cenderung hangat, setia, dan suka menjaga hubungan.",
             "traits": ["Sosial", "Penuh perhatian", "Ramah", "Stabil"],
@@ -157,9 +170,94 @@ def map_personality(shape: str):
             "challenges": ["Bisa memberi kesan kurang profesional", "Perlu perawatan diri lebih"],
             "advice": ["Pertimbangkan perawatan kulit dasar", "Rapi saat acara penting", "Tidur cukup dan hidrasi"],
         },
-        
     }
-    return personality_map.get(shape, personality_map["Oval / Panjang"])
+
+    # Determine whether we're running in production (VERCEL or explicit env)
+    is_production = bool(
+        os.environ.get("VERCEL")
+        or os.environ.get("VERCEL_ENV")
+        or os.environ.get("FLASK_ENV") == "production"
+        or os.environ.get("ENV") == "production"
+    )
+
+    # When running locally, allow loading key from .env or falling back to the
+    # hardcoded map. In production we require the OPENAI_API_KEY env var.
+    if not api_key and not is_production:
+        env_path = BASE_DIR / ".env"
+        if env_path.exists():
+            try:
+                with open(env_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        if line.strip().startswith("OPENAI_API_KEY="):
+                            api_key = line.split("=", 1)[1].strip()
+                            break
+            except Exception:
+                pass
+
+    if is_production and not api_key:
+        raise RuntimeError(
+            "OPENAI_API_KEY environment variable not set. Set it to use AI-generated personality maps in production."
+        )
+
+    if not api_key:
+        return fallback_map.get(shape, fallback_map["Oval / Panjang"])
+
+    try:
+        # Use the new OpenAI client interface (openai>=1.0.0)
+        from openai import OpenAI, RateLimitError
+
+        client = OpenAI(api_key=api_key)
+
+        system_msg = (
+            "You are a helpful assistant that generates a concise personality map "
+            "based on a face shape label and optional numeric facial metrics. "
+            "Respond with a valid JSON object only (no extra text) with these keys:"
+            " summary (string), traits (array of short strings), strengths (array), "
+            "challenges (array), advice (array, optional). Keep each list short (3-5 items)."
+        )
+
+        user_msg = {
+            "shape": shape,
+            "metrics": metrics or {},
+        }
+
+        prompt = (
+            f"Generate a JSON personality map for the following input:\n{json.dumps(user_msg, ensure_ascii=False)}\n"
+            "Return only the JSON object."
+        )
+
+        resp = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "system", "content": system_msg}, {"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_tokens=400,
+        )
+
+        # New client returns choices with message objects
+        text = getattr(resp.choices[0].message, "content", None) or resp.choices[0].message["content"]
+        if isinstance(text, bytes):
+            text = text.decode("utf-8")
+        text = text.strip()
+
+        # Attempt to parse JSON from the model output. Models sometimes wrap JSON
+        # with backticks or extra text; try to extract the first JSON object.
+        try:
+            return json.loads(text)
+        except Exception:
+            # Try to find a JSON substring
+            start = text.find("{")
+            end = text.rfind("}")
+            if start != -1 and end != -1:
+                try:
+                    return json.loads(text[start : end + 1])
+                except Exception:
+                    pass
+        # If parsing fails, raise an error so callers can handle it.
+        raise ValueError("AI response could not be parsed as JSON: %s" % text)
+    except RateLimitError:
+        return fallback_map.get(shape, fallback_map["Oval / Panjang"])
+    except Exception:
+        return fallback_map.get(shape, fallback_map["Oval / Panjang"])
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -208,7 +306,7 @@ def detail_result(prediction_id: int):
         return redirect(url_for("index"))
 
     prediction["details"] = json.loads(prediction["details"]) if prediction.get("details") else {}
-    prediction["personality"] = map_personality(prediction.get("prediction", ""))
+    prediction["personality"] = map_personality(prediction.get("prediction", ""), prediction.get("details", {}))
     return render_template("detail.html", prediction=prediction)
 
 
@@ -241,7 +339,7 @@ def api_appearance():
     if not mapped:
         return jsonify({"error": "Label tidak dikenali. Gunakan 'semrawut' atau 'tidak_terawat'."}), 400
 
-    profile = map_personality(mapped)
+    profile = map_personality(mapped, None)
     return jsonify({"label": mapped, "profile": profile})
 
 
@@ -271,7 +369,7 @@ def api_predict():
         "prediction": prediction,
         "confidence": confidence,
         "metrics": metrics,
-        "personality": map_personality(prediction),
+        "personality": map_personality(prediction, metrics),
         "image_url": url_for("uploaded_file", filename=stored_name, _external=True),
     }
     return jsonify(result)
@@ -296,7 +394,7 @@ def api_personality():
     file.save(str(save_path))
 
     prediction, confidence, metrics = predict_face_shape(str(save_path))
-    personality = map_personality(prediction)
+    personality = map_personality(prediction, metrics)
     # optional appearance override via form param (e.g., appearance=semrawut)
     appearance_label = request.form.get("appearance")
     appearance = None
@@ -308,7 +406,7 @@ def api_personality():
         }
         mapped = key_map.get(appearance_label.lower())
         if mapped:
-            appearance = map_personality(mapped)
+            appearance = map_personality(mapped, None)
 
     resp = {
         "filename": original_name,
