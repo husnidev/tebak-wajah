@@ -32,6 +32,8 @@ MODELS = [
     "gemini-3.1-flash-lite",
     "gemini-flash-latest",
     "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-2.5-flash",
 ]
 
 app = Flask(__name__)
@@ -265,65 +267,31 @@ def map_personality(shape: str, metrics: dict | None = None):
             "Return only the JSON object."
         )
 
-        preferred_model = os.getenv("GOOGLE_MODEL", "gemini-3.5-flash")
-        candidate_models = []
-        for raw_name in [preferred_model] + [m for m in MODELS if m != preferred_model]:
-            normalized = raw_name.replace("models/", "", 1)
-            if normalized not in candidate_models:
-                candidate_models.append(normalized)
-            prefixed = f"models/{normalized}"
-            if prefixed not in candidate_models:
-                candidate_models.append(prefixed)
-
-        response = None
-        for model_name in candidate_models:
-            app.logger.info(f"Trying model: {model_name}")
+        for model in MODELS:
+            app.logger.info(f"Trying model: {model}")
             try:
                 response = client.models.generate_content(
-                    model=model_name,
+                    model=model,
                     contents=prompt,
                 )
-                break
-            except Exception as exc:
-                msg = str(exc).lower()
-                app.logger.warning(f"Model {model_name} failed: {msg}")
-                transient_error = any(
-                    token in msg
-                    for token in [
-                        "404",
-                        "429",
-                        "500",
-                        "503",
-                        "temporarily unavailable",
-                        "overloaded",
-                        "rate limit",
-                        "deadline",
-                        "service unavailable",
-                        "try again",
-                        "timeout",
-                    ]
-                )
-                if "404" in msg or "not available" in msg or "no longer available" in msg or transient_error:
-                    continue
-                raise
-
-        if response is None:
-            raise RuntimeError("No supported Gemini model could be used for personality mapping.")
-
-        text = getattr(response, "text", "") or ""
-        text = text.strip()
-
-        try:
-            return json.loads(text)
-        except Exception:
-            start = text.find("{")
-            end = text.rfind("}")
-            if start != -1 and end != -1:
+                text = response.text.strip()
                 try:
-                    return json.loads(text[start : end + 1])
+                    return json.loads(text)
                 except Exception:
-                    pass
-        raise ValueError("AI response could not be parsed as JSON: %s" % text)
+                    start = text.find("{")
+                    end = text.rfind("}")
+                    if start != -1 and end != -1:
+                        try:
+                            return json.loads(text[start : end + 1])
+                        except Exception:
+                            pass
+                raise ValueError("AI response could not be parsed as JSON: %s" % text)
+            except Exception as e:
+                app.logger.warning(f"{model} gagal: {e}")
+
+        # All models failed, fall back to hardcoded map
+        app.logger.warning("All Gemini models failed; falling back to hardcoded personality map")
+        return fallback_map.get(shape, fallback_map["Oval / Panjang"])
     except Exception as e:
         import traceback
 
