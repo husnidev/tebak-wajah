@@ -214,8 +214,7 @@ def map_personality(shape: str, metrics: dict | None = None):
     try:
         from google import genai
 
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        client = genai.Client(api_key=api_key)
 
         system_msg = (
             "You are a helpful assistant that generates a concise personality map "
@@ -235,7 +234,11 @@ def map_personality(shape: str, metrics: dict | None = None):
             "Return only the JSON object."
         )
 
-        response = model.generate_content([system_msg, prompt])
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+        )
+
         text = getattr(response, "text", "") or ""
         text = text.strip()
 

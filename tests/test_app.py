@@ -57,16 +57,17 @@ class AppTestCase(unittest.TestCase):
     def test_map_personality_uses_google_ai_when_available(self):
         import app as app_module
 
-        class FakeModel:
+        class FakeModels:
             def generate_content(self, *args, **kwargs):
                 return types.SimpleNamespace(
                     text='{"summary": "Google AI profile", "traits": ["Cerdas"], "strengths": ["Adaptif"], "challenges": ["Perlu fokus"]}'
                 )
 
-        fake_genai_module = types.SimpleNamespace(
-            configure=lambda api_key=None: None,
-            GenerativeModel=lambda *args, **kwargs: FakeModel(),
-        )
+        class FakeClient:
+            def __init__(self, api_key=None):
+                self.models = FakeModels()
+
+        fake_genai_module = types.SimpleNamespace(Client=lambda api_key=None: FakeClient(api_key=api_key))
         fake_google_module = types.SimpleNamespace(genai=fake_genai_module)
 
         with patch.dict(os.environ, {"GOOGLE_API_KEY": "fake-key"}, clear=False), patch.dict(
