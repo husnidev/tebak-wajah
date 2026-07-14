@@ -29,7 +29,7 @@ ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
 
 MODEL_PREFERENCES = [
     "gemini-3.1-flash-lite",
-    "gemini-2.0-flash",
+    "gemini-3.5-flash",
     "gemini-2.5-flash-lite",
     "gemini-flash-latest",
 ]
@@ -324,11 +324,16 @@ def index():
         save_path = UPLOAD_FOLDER / stored_name
         file.save(str(save_path))
 
-        prediction, confidence, metrics = predict_face_shape(str(save_path))
-        prediction_id = save_prediction(original_name, prediction, confidence, stored_name, metrics)
-        history = get_predictions()
-        flash("Prediksi berhasil disimpan.")
-        return redirect(url_for("detail_result", prediction_id=prediction_id))
+        try:
+            prediction, confidence, metrics = predict_face_shape(str(save_path))
+            prediction_id = save_prediction(original_name, prediction, confidence, stored_name, metrics)
+            history = get_predictions()
+            flash("Prediksi berhasil disimpan.")
+            return redirect(url_for("detail_result", prediction_id=prediction_id))
+        except Exception as e:
+            app.logger.exception("Gagal memproses prediksi")
+            flash(f"Gagal memproses prediksi: {e}")
+            return redirect(url_for("index"))
 
     return render_template("index.html", history=history, prediction=None, confidence=None, uploaded_name=None, prediction_id=None)
 
