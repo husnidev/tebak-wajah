@@ -280,11 +280,22 @@ def map_personality(shape: str, metrics: dict | None = None):
                 )
 
                 app.logger.info(f"Success {model}")
-                text = response.text.strip()
+                app.logger.info(f"Response candidates: {len(response.candidates) if response.candidates else 0}")
+
+                text = response.text
+                if not text or not text.strip():
+                    app.logger.warning(f"{model} returned empty response")
+                    continue
+
+                text = text.strip()
+                app.logger.info(f"Response text preview: {text[:200]}")
+
                 if text.startswith("```"):
                     text = text.replace("```json", "").replace("```", "").strip()
                 return json.loads(text)
 
+            except json.JSONDecodeError as e:
+                app.logger.warning(f"{model} returned invalid JSON: {e} | text: {text[:300] if text else 'None'}")
             except Exception as e:
                 app.logger.warning(f"{model} gagal: {e}")
 
