@@ -238,8 +238,9 @@ def map_personality(shape: str, metrics: dict | None = None):
             "Return only the JSON object."
         )
 
+        model_name = os.getenv("GOOGLE_MODEL", "gemini-1.5-flash")
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=model_name,
             contents=prompt,
         )
 
