@@ -30,6 +30,7 @@ ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
 MODELS = [
     "gemini-3.5-flash",
     "gemini-3.1-flash-lite",
+    "gemini-flash-latest",
     "gemini-2.0-flash",
 ]
 
@@ -265,7 +266,14 @@ def map_personality(shape: str, metrics: dict | None = None):
         )
 
         preferred_model = os.getenv("GOOGLE_MODEL", "gemini-3.5-flash")
-        candidate_models = [preferred_model] + [m for m in MODELS if m != preferred_model]
+        candidate_models = []
+        for raw_name in [preferred_model] + [m for m in MODELS if m != preferred_model]:
+            normalized = raw_name.replace("models/", "", 1)
+            if normalized not in candidate_models:
+                candidate_models.append(normalized)
+            prefixed = f"models/{normalized}"
+            if prefixed not in candidate_models:
+                candidate_models.append(prefixed)
 
         response = None
         for model_name in candidate_models:
@@ -279,7 +287,23 @@ def map_personality(shape: str, metrics: dict | None = None):
             except Exception as exc:
                 msg = str(exc).lower()
                 app.logger.warning(f"Model {model_name} failed: {msg}")
-                if "404" in msg or "not available" in msg or "no longer available" in msg:
+                transient_error = any(
+                    token in msg
+                    for token in [
+                        "404",
+                        "429",
+                        "500",
+                        "503",
+                        "temporarily unavailable",
+                        "overloaded",
+                        "rate limit",
+                        "deadline",
+                        "service unavailable",
+                        "try again",
+                        "timeout",
+                    ]
+                )
+                if "404" in msg or "not available" in msg or "no longer available" in msg or transient_error:
                     continue
                 raise
 
