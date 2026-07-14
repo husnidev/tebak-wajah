@@ -21,3 +21,5 @@ tmp/*
 # Editor files
 .vscode/
 .idea/
+.vercel
+.env*
