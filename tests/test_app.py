@@ -14,6 +14,8 @@ class AppTestCase(unittest.TestCase):
     def setUp(self):
         self.db_path = tempfile.NamedTemporaryFile(suffix=".db", delete=False).name
         os.environ["DATABASE_URL"] = self.db_path
+        # Ensure tests do not use a real Google API key causing network calls
+        os.environ.pop("GOOGLE_API_KEY", None)
 
         import app as app_module
         import database.db as db_module
@@ -62,6 +64,8 @@ class AppTestCase(unittest.TestCase):
                 return types.SimpleNamespace(
                     text='{"summary": "Google AI profile", "traits": ["Cerdas"], "strengths": ["Adaptif"], "challenges": ["Perlu fokus"]}'
                 )
+            def list(self):
+                return [types.SimpleNamespace(name="fake-model")]
 
         class FakeClient:
             def __init__(self, api_key=None):
@@ -70,7 +74,7 @@ class AppTestCase(unittest.TestCase):
         fake_genai_module = types.SimpleNamespace(Client=lambda api_key=None: FakeClient(api_key=api_key))
         fake_google_module = types.SimpleNamespace(genai=fake_genai_module)
 
-        with patch.dict(os.environ, {"GOOGLE_API_KEY": "fake-key"}, clear=False), patch.dict(
+        with patch.dict(os.environ, {"GOOGLE_API_KEY": "fake-key", "RUN_REAL_GENAI": "1"}, clear=False), patch.dict(
             sys.modules,
             {
                 "google": fake_google_module,

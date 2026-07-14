@@ -135,21 +135,6 @@ def map_personality(shape: str, metrics: dict | None = None):
     import os
     import json
 
-    print("===== ENV CHECK =====")
-    print("VERCEL =", os.getenv("VERCEL"))
-    print("VERCEL_ENV =", os.getenv("VERCEL_ENV"))
-    print("GOOGLE_API_KEY exists =", bool(os.getenv("GOOGLE_API_KEY")))
-    print("=====================")
-
-    api_key = os.getenv("GOOGLE_API_KEY")
-
-    app.logger.info(f"VERCEL_ENV={os.getenv('VERCEL_ENV')}")
-    app.logger.info(f"GOOGLE_API_KEY exists={bool(api_key)}")
-    app.logger.info("========== MAP PERSONALITY ==========")
-    app.logger.info(f"Shape: {shape}")
-    app.logger.info(f"API Key Exists: {bool(api_key)}")
-    app.logger.info("Calling Gemini...")
-
     # Hardcoded fallback map used when AI key/call is unavailable.
     fallback_map = {
         "Bulat / Persegi": {
@@ -185,6 +170,30 @@ def map_personality(shape: str, metrics: dict | None = None):
         },
     }
 
+    import sys
+
+    # During unit tests or CI we avoid calling real remote models unless
+    # explicitly enabled via RUN_REAL_GENAI=1. This prevents network calls
+    # during automated tests.
+    if ("unittest" in sys.modules or "pytest" in sys.modules) and os.getenv("RUN_REAL_GENAI") != "1":
+        app.logger.info("Test environment detected; returning fallback map")
+        return fallback_map.get(shape, fallback_map["Oval / Panjang"])
+
+    print("===== ENV CHECK =====")
+    print("VERCEL =", os.getenv("VERCEL"))
+    print("VERCEL_ENV =", os.getenv("VERCEL_ENV"))
+    print("GOOGLE_API_KEY exists =", bool(os.getenv("GOOGLE_API_KEY")))
+    print("=====================")
+
+    api_key = os.getenv("GOOGLE_API_KEY")
+
+    app.logger.info(f"VERCEL_ENV={os.getenv('VERCEL_ENV')}")
+    app.logger.info(f"GOOGLE_API_KEY exists={bool(api_key)}")
+    app.logger.info("========== MAP PERSONALITY ==========")
+    app.logger.info(f"Shape: {shape}")
+    app.logger.info(f"API Key Exists: {bool(api_key)}")
+    app.logger.info("Calling Gemini...")
+
     # Determine whether we're running in production (VERCEL or explicit env)
     is_production = bool(
         os.environ.get("VERCEL")
@@ -219,6 +228,17 @@ def map_personality(shape: str, metrics: dict | None = None):
         from google import genai
 
         client = genai.Client(api_key=api_key)
+
+        # Log available models (useful for debugging which models are accessible)
+        try:
+            for m in client.models.list():
+                try:
+                    name = getattr(m, "name", None) or (m.get("name") if isinstance(m, dict) else str(m))
+                except Exception:
+                    name = str(m)
+                app.logger.info(f"Available model: {name}")
+        except Exception:
+            app.logger.info("Could not list available models")
 
         system_msg = (
             "You are a helpful assistant that generates a concise personality map "
